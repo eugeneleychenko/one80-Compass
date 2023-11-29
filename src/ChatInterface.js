@@ -1,12 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Box, Button, Container, Grid, List, ListItem, Paper, TextField, Typography } from '@mui/material';
 import InputAdornment from '@mui/material/InputAdornment';
+
 
 
 function ChatInterface() {
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [clickCount, setClickCount] = useState(0);
+  const chatContainerRef = useRef(null);
+
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      const isScrolledToBottom = chatContainerRef.current.scrollHeight - chatContainerRef.current.clientHeight <= chatContainerRef.current.scrollTop + (chatContainerRef.current.clientHeight * 0.75);
+      if (isScrolledToBottom) {
+        chatContainerRef.current.scrollBy(0, 40);
+      }
+    }
+  }, [messages]);
+  
 
   const userMessages = [
     "I’d like to create a custom journey for a new project",
@@ -31,11 +43,11 @@ function ChatInterface() {
   return (
     <Container maxWidth="lg" sx={{ height: '100vh', position: 'relative', overflow: 'hidden' }}>
       <Grid container sx={{ height: '100%' }}>
-      <Grid item xs={12} sx={{ height: '100%', overflowY: 'auto', paddingBottom: '180px' /* Adjust this value as needed */ }}>
+      <Grid item xs={12} ref={chatContainerRef} sx={{ height: '100%', overflowY: 'auto', paddingBottom: '180px' /* Adjust this value as needed */ }}>
         <List sx={{ padding: 0 }}>
             {messages.map((message, index) => (
             <ListItem key={index} sx={{ justifyContent: message.sender === 'user' ? 'flex-end' : 'flex-start' }}>
-                <Paper elevation={3} sx={{ padding: '10px', maxWidth: '100%', backgroundColor: message.sender === 'user' ? '#e0f7fa' : '#fff' }}>
+                <Paper elevation={3} sx={{ padding: '10px', maxWidth: '75%', width: '75%', backgroundColor: message.sender === 'user' ? '#e0f7fa' : '#fff', marginLeft: message.sender === 'user' ? 'auto' : 0, marginRight: message.sender === 'friend' ? 'auto' : 0 }}>
                 <Typography variant="body1">{message.text}</Typography>
                 </Paper>
             </ListItem>
