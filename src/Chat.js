@@ -65,36 +65,40 @@ function Chat() {
         acc[method] = 0;
         return acc;
       }, {}));
-      console.log("json loaded")
+      
     } else {
       // Handle the case where data is not as expected
       console.error('Data is not in the expected format:', fetchedData);
     }
+    console.log(currentAlts)
   };
 
-  const handleShuffleClick = (methodIndex) => {
-    setMethods(prevMethods => {
-      const method = prevMethods[methodIndex];
-      if (!currentAlts[method]) {
-        console.error('No alternatives found for method:', method); // Debugging log
-        return prevMethods;
-      }
-      const alternatives = currentAlts[method];
-      let shuffledAlternatives = shuffleAlternatives(alternatives);
-      const newMethods = [...prevMethods];
-      // Ensure the original method is not lost by always placing it at the start
-      newMethods[methodIndex] = method;
-      setShuffleCount(prevShuffleCount => ({
-        ...prevShuffleCount,
-        [method]: (prevShuffleCount[method] + 1) % (alternatives.length + 1)
-      }));
-      // Update the alternatives for the method with the shuffled alternatives
-      setCurrentAlts(prevCurrentAlts => ({
-        ...prevCurrentAlts,
-        [method]: shuffledAlternatives
-      }));
-      return newMethods;
-    });
+  const handleShuffleClick = (methodName) => {
+    // Ensure we have the original alternatives to shuffle
+    const originalAlternatives = currentAlts[methodName] || [];
+  
+    if (originalAlternatives.length === 0) {
+      console.error('No alternatives found for method:', methodName); // Debugging log
+      return;
+    }
+  
+    // Log the original alternatives for the method
+    console.log(`Original alternatives for "${methodName}":`, originalAlternatives);
+  
+    // Shuffle the original alternatives
+    let shuffledAlternatives = shuffleAlternatives(originalAlternatives);
+    
+    // Update the shuffle count for the method
+    setShuffleCount(prevShuffleCount => ({
+      ...prevShuffleCount,
+      [methodName]: prevShuffleCount[methodName] + 1
+    }));
+  
+    // Update the alternatives for the method with the shuffled alternatives
+    setCurrentAlts(prevCurrentAlts => ({
+      ...prevCurrentAlts,
+      [methodName]: shuffledAlternatives
+    }));
   };
 
   function shuffleAlternatives(alternatives) {
@@ -144,13 +148,15 @@ function Chat() {
             expandIcon={
               <ShuffleIcon onClick={(e) => {
                 e.stopPropagation();
-                handleShuffleClick(index);
+                handleShuffleClick(method);
               }} />
             }
 >
-              <Typography>
-                {currentAlts[method] && shuffleCount[method] < currentAlts[method].length ? currentAlts[method][shuffleCount[method]] : method}
-              </Typography>
+            <Typography>
+              {shuffleCount[method] === 0
+                ? method
+                : currentAlts[method] && currentAlts[method][shuffleCount[method] - 1]}
+            </Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Typography>
