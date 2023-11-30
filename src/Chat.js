@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Accordion, AccordionSummary, AccordionDetails, Typography, Divider, Grid } from '@mui/material';
 import ShuffleIcon from '@mui/icons-material/Shuffle';
+import DeleteIcon from '@mui/icons-material/Delete';
 import ChatInterface from './ChatInterface';
 
 function Chat() {
@@ -89,16 +90,31 @@ function Chat() {
     let shuffledAlternatives = shuffleAlternatives(originalAlternatives);
     
     // Update the shuffle count for the method
-    setShuffleCount(prevShuffleCount => ({
-      ...prevShuffleCount,
-      [methodName]: prevShuffleCount[methodName] + 1
-    }));
+    setShuffleCount(prevShuffleCount => {
+      const updatedCount = prevShuffleCount[methodName] + 1;
   
-    // Update the alternatives for the method with the shuffled alternatives
-    setCurrentAlts(prevCurrentAlts => ({
-      ...prevCurrentAlts,
-      [methodName]: shuffledAlternatives
-    }));
+      // If we've gone through all alternatives, reset the count and use the original method name
+      if (updatedCount > originalAlternatives.length) {
+        setCurrentAlts(prevCurrentAlts => ({
+          ...prevCurrentAlts,
+          [methodName]: originalAlternatives
+        }));
+        return {
+          ...prevShuffleCount,
+          [methodName]: 0
+        };
+      } else {
+        // Update the alternatives for the method with the shuffled alternatives
+        setCurrentAlts(prevCurrentAlts => ({
+          ...prevCurrentAlts,
+          [methodName]: shuffledAlternatives
+        }));
+        return {
+          ...prevShuffleCount,
+          [methodName]: updatedCount
+        };
+      }
+    });
   };
 
   function shuffleAlternatives(alternatives) {
@@ -109,6 +125,14 @@ function Chat() {
     }
     return shuffled;
   }
+
+  const handleDeleteMethod = (methodName) => {
+    setMethods(prevMethods => prevMethods.filter(method => method !== methodName));
+    const { [methodName]: deletedMethod, ...remainingAlts } = currentAlts;
+    setCurrentAlts(remainingAlts);
+    const { [methodName]: deletedCount, ...remainingCounts } = shuffleCount;
+    setShuffleCount(remainingCounts);
+  };
 
   const handleNewTopic = () => {
     setTopics(['Untitled']);
@@ -146,12 +170,18 @@ function Chat() {
           <Accordion>
           <AccordionSummary
             expandIcon={
-              <ShuffleIcon onClick={(e) => {
-                e.stopPropagation();
-                handleShuffleClick(method);
-              }} />
+              <>
+                <ShuffleIcon onClick={(e) => {
+                  e.stopPropagation();
+                  handleShuffleClick(method);
+                }} />
+                <DeleteIcon onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteMethod(method);
+                }} />
+              </>
             }
->
+          >
             <Typography>
               {shuffleCount[method] === 0
                 ? method
