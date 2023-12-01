@@ -5,3 +5,4 @@ python-dotenv
 numpy
 langchain
 gunicorn
+openai
