@@ -4,4 +4,4 @@ requests
 python-dotenv
 numpy
 langchain
-
+gunicorn
