@@ -1,63 +1,94 @@
+from flask import Flask, request, jsonify
+from flask_cors import CORS  # Added for CORS support
+import json
 import requests
-import os
 from dotenv import load_dotenv
+from langchain.chat_models import ChatOpenAI
+from langchain.prompts import PromptTemplate
+from langchain.chains import LLMChain
 from langchain.vectorstores import FAISS
 from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain.schema import Document
+import os
 import numpy as np
-import faiss
 
-# Load environment variables and initialize OpenAI embeddings
+app = Flask(__name__)
+CORS(app)  # Initialize CORS on the Flask app
 load_dotenv()
+
 openai_api_key = os.getenv("OPENAI_API_KEY")
-openai_embeddings = OpenAIEmbeddings(api_key=openai_api_key)
 
-# Fetch the data from the provided URL
-data_url = 'https://gs.jasonaa.me/?url=https://docs.google.com/spreadsheets/d/e/2PACX-1vSmp889ksBKKVVwpaxhlIzpDzXNOWjnszEXBP7SC5AyoebSIBFuX5qrcwwv6ud4RCYw2t_BZRhGLT0u/pubhtml?gid=1980586524&single=true'
-response = requests.get(data_url)
-data = response.json()
+def load_data_from_url(url):
+    response = requests.get(url)
+    response.raise_for_status()
+    return response.json()
 
-# Extract journey names and methods
-journey_names = [item['Journey Name (N)'] for item in data]
-methods = {item['Journey Name (N)']: item['Methods (N)'] for item in data}
+def get_agenda_items(recipe_name, data):
+    agenda_items = []
+    for entry in data:
+        if entry['Journey Name (N)'] == recipe_name:
+            agenda_items.append(entry['Agenda Items (Description)'])
+    return agenda_items if agenda_items else None
 
-# Convert the journey names to embeddings
-embeddings = [openai_embeddings.embed_query(name) for name in journey_names]
+def get_methods(recipe_name, data):
+    methods = []
+    for entry in data:
+        if entry['Journey Name (N)'] == recipe_name:
+            methods.append(entry['Methods (N)'])
+    return methods if methods else None
 
-# Assuming `embeddings` is a list of numpy arrays
-# First, we need to convert the list of numpy arrays into a 2D numpy array
-embeddings_matrix = np.vstack(embeddings)
+@app.route('/get_recipe', methods=['POST'])
+def get_recipe():
+    content = request.json
+    recipe_name = content.get('recipe_name')
+    if not recipe_name:
+        return jsonify({"error": "No recipe name provided"}), 400
 
-# Create a FAISS index
-dimension = embeddings_matrix.shape[1]  # Dimension of the embeddings
-index = faiss.IndexFlatL2(dimension)    # Using L2 distance for similarity
+    tasks_url = 'https://gs.jasonaa.me/?url=https://docs.google.com/spreadsheets/d/e/2PACX-1vSmp889ksBKKVVwpaxhlIzpDzXNOWjnszEXBP7SC5AyoebSIBFuX5qrcwwv6ud4RCYw2t_BZRhGLT0u/pubhtml?gid=1980586524&single=true'
+    flow_url = 'https://gs.jasonaa.me/?url=https://docs.google.com/spreadsheets/d/e/2PACX-1vSmp889ksBKKVVwpaxhlIzpDzXNOWjnszEXBP7SC5AyoebSIBFuX5qrcwwv6ud4RCYw2t_BZRhGLT0u/pubhtml?gid=1980586524&single=true'
+    tasks_data = load_data_from_url(tasks_url)
+    flow_data = load_data_from_url(flow_url)
 
-# Add the embeddings to the index
-index.add(embeddings_matrix)
+    # Initialize the language model
+    llm = ChatOpenAI(model="gpt-4", temperature=.2, openai_api_key=openai_api_key)
+    
+    # Convert the tasks to Document objects
+    documents = [Document(page_content=task['Journey Name (N)']) for task in tasks_data]
 
-# The docstore can be your journey_names if it's a list
-docstore = journey_names
+    # Create an embeddings model
+    embeddings = OpenAIEmbeddings()
 
-# If your docstore is a list, the index_to_docstore_id can be an identity function
-# since the indices will match
-index_to_docstore_id = lambda x: x
+    # Create a FAISS vectorstore from the documents
+    db = FAISS.from_documents(documents, embeddings)
 
-# Now, create the FAISS vector store with the required arguments
-vector_store = FAISS(index=index, docstore=docstore, index_to_docstore_id=index_to_docstore_id, embedding_function=openai_embeddings.embed_query)
+    # Perform a similarity search
+    similar_docs = db.similarity_search(recipe_name, k=1)
+    if similar_docs:
+        closest_task = similar_docs[0].page_content
+        similarity = np.linalg.norm(np.array(embeddings.embed_query(recipe_name)) - np.array(embeddings.embed_query(closest_task)))
+        
+        # Get agenda items and methods for the closest task
+        agenda_items = get_agenda_items(closest_task, flow_data)
+        methods = get_methods(closest_task, flow_data)  # New line to get methods
+        
+        if agenda_items and methods:
+            # Create a chain that uses the language model to generate a complete sentence
+            template = "Based on your input, I suggest you to follow these steps: {agenda_items}. This suggestion is based on the recipe '{recipe_name}', which is {similarity}% similar to your input. The original recipe that it is matching with is '{closest_task}'."
+            prompt = PromptTemplate(template=template, input_variables=["agenda_items", "recipe_name", "similarity", "closest_task"])
+            llm_chain = LLMChain(prompt=prompt, llm=llm)
+            response = llm_chain.run({"agenda_items": ', '.join(agenda_items), "recipe_name": recipe_name, "similarity": round(similarity * 100, 2), "closest_task": closest_task})
+            return jsonify({
+                "response": response,
+                "details": {
+                    "Closest Luma Task": closest_task,
+                    "Methods": '| '.join(methods),
+                    "Similarity": f"{similarity}% similar to that task"
+                }
+            })
+        else:
+            return jsonify({"error": "Agenda Items or Methods not found for the task"}), 404
+    else:
+        return jsonify({"error": "Task not found"}), 404
 
-# Function to find the best match for a query
-def find_best_match(query):
-    query_embedding = openai_embeddings.embed_query(query)
-    # Inside the find_best_match function
-    distances, indices = vector_store.search(query_embedding, k=1, search_type='similarity')
-    best_match_index = indices[0][0]
-    best_match_name = journey_names[best_match_index]
-    similarity_score = 1 - distances[0][0]
-    methods_associated = methods[best_match_name]
-    return best_match_name, similarity_score, methods_associated
-
-# Example usage
-query = "Improve employee experience"
-best_match_name, similarity_score, methods_associated = find_best_match(query)
-print(f"Journey Name: {best_match_name}")
-print(f"Similarity Score: {similarity_score:.2%}")
-print(f"Methods: {methods_associated}")
+if __name__ == "__main__":
+    app.run(debug=True)
