@@ -8,4 +8,4 @@ gunicorn
 openai
 tiktoken
 faiss-cpu
-faiss-gpu
+
