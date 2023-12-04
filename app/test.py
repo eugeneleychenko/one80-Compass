@@ -11,6 +11,7 @@ from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.schema import Document
 import os
 import numpy as np
+import tiktoken
 
 app = Flask(__name__)
 CORS(app)  # Initialize CORS on the Flask app
