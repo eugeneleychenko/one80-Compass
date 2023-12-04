@@ -6,3 +6,4 @@ numpy
 langchain
 gunicorn
 openai
+tiktoken
