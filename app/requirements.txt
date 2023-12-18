@@ -9,5 +9,4 @@ openai
 tiktoken
 faiss-cpu
 fastapi
-dotenv
 
