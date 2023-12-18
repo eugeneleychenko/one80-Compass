@@ -8,4 +8,6 @@ gunicorn
 openai
 tiktoken
 faiss-cpu
+fastapi
+dotenv
 
