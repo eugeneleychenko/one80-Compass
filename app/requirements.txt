@@ -1,12 +1,9 @@
-flask
-flask-cors
-requests
-python-dotenv
-numpy
+fastapi==0.75.0
+uvicorn==0.17.6
+python-dotenv==0.20.0
+requests==2.28.1
 langchain
-gunicorn
 openai
-tiktoken
 faiss-cpu
-fastapi
+tiktoken
 
