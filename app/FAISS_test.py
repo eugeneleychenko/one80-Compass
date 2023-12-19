@@ -20,7 +20,7 @@ app.add_middleware(
 )
 load_dotenv()
 
-FAISS_INDEX_FILE = 'faiss_index.bin'
+FAISS_INDEX_FILE = '/tmp/faiss_index.bin'
 
 def save_faiss_index(db):
     db.save_local(FAISS_INDEX_FILE)
