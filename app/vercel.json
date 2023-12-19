@@ -1,14 +1,14 @@
 {
     "builds": [
         {
-            "src": "test_w_FAISS.py",
+            "src": "FAISS_test.py",
             "use": "@vercel/python"
         }
     ],
     "routes": [
         {
             "src": "/(.*)",
-            "dest": "test_w_FAISS.py"
+            "dest": "FAISS_test.py"
         }
     ]
 }
